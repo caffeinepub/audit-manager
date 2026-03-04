@@ -102,6 +102,69 @@
     --sidebar-ring: 0.62 0.13 30;
   }
 
+  /* ── DARK MODE ── */
+  .dark {
+    /* Deep charcoal background */
+    --background: 0.12 0.008 60;
+    --foreground: 0.92 0.005 60;
+
+    /* Dark card surface */
+    --card: 0.16 0.008 60;
+    --card-foreground: 0.92 0.005 60;
+    --popover: 0.14 0.008 60;
+    --popover-foreground: 0.92 0.005 60;
+
+    /* Warm peach-pink primary (slightly brighter for dark bg) */
+    --primary: 0.70 0.14 30;
+    --primary-foreground: 0.10 0.005 60;
+
+    /* Dark secondary */
+    --secondary: 0.20 0.008 60;
+    --secondary-foreground: 0.85 0.005 60;
+
+    /* Dark muted */
+    --muted: 0.22 0.008 60;
+    --muted-foreground: 0.55 0.008 60;
+
+    /* Lighter peach accent */
+    --accent: 0.28 0.06 30;
+    --accent-foreground: 0.92 0.005 60;
+
+    /* Muted red destructive */
+    --destructive: 0.55 0.20 25;
+    --destructive-foreground: 1.0 0 0;
+
+    /* Amber warning */
+    --warning: 0.72 0.16 65;
+    --warning-foreground: 0.10 0.01 60;
+
+    /* Muted green success */
+    --success: 0.55 0.13 145;
+    --success-foreground: 1.0 0 0;
+
+    /* Dark borders */
+    --border: 0.25 0.008 60;
+    --input: 0.22 0.008 60;
+    --ring: 0.70 0.14 30;
+
+    /* Charts */
+    --chart-1: 0.70 0.14 30;
+    --chart-2: 0.78 0.10 30;
+    --chart-3: 0.85 0.07 30;
+    --chart-4: 0.55 0.20 25;
+    --chart-5: 0.55 0.13 145;
+
+    /* Sidebar */
+    --sidebar: 0.14 0.008 60;
+    --sidebar-foreground: 0.92 0.005 60;
+    --sidebar-primary: 0.70 0.14 30;
+    --sidebar-primary-foreground: 0.10 0.005 60;
+    --sidebar-accent: 0.20 0.008 60;
+    --sidebar-accent-foreground: 0.70 0.14 30;
+    --sidebar-border: 0.25 0.008 60;
+    --sidebar-ring: 0.70 0.14 30;
+  }
+
   * {
     @apply border-border;
   }

@@ -1,4 +1,5 @@
 export interface IssueTracking {
+  accountHead: string;
   responsibleOfficer: string;
   targetCompletionDate: string; // ISO date string
   clientResponse: string;
@@ -14,6 +15,7 @@ export function getIssueTracking(issueId: string): IssueTracking {
     // ignore parse errors
   }
   return {
+    accountHead: "",
     responsibleOfficer: "",
     targetCompletionDate: "",
     clientResponse: "",

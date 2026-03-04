@@ -35,7 +35,7 @@ const rootRoute = createRootRoute({
 });
 
 function RootComponent() {
-  const { identity } = useInternetIdentity();
+  const { identity, isInitializing } = useInternetIdentity();
   const {
     data: userProfile,
     isLoading: profileLoading,
@@ -45,6 +45,33 @@ function RootComponent() {
   const isAuthenticated = !!identity;
   const showProfileSetup =
     isAuthenticated && !profileLoading && isFetched && userProfile === null;
+
+  // Wait for the auth client to finish loading the stored session before deciding
+  if (isInitializing) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div
+            className="h-16 w-16 rounded-full flex items-center justify-center"
+            style={{
+              background:
+                "radial-gradient(circle at 30% 30%, oklch(0.75 0.14 30), oklch(0.55 0.15 25))",
+            }}
+          >
+            <span className="text-white font-serif font-bold text-3xl leading-none">
+              A
+            </span>
+          </div>
+          <div className="h-1 w-32 rounded-full overflow-hidden bg-border/40">
+            <div
+              className="h-full rounded-full animate-pulse"
+              style={{ background: "oklch(0.62 0.13 30)", width: "60%" }}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return <LoginPage />;
@@ -122,7 +149,12 @@ declare module "@tanstack/react-router" {
 
 export default function App() {
   return (
-    <ThemeProvider attribute="class" defaultTheme="dark" forcedTheme="dark">
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="light"
+      enableSystem={false}
+      storageKey="auditflow-theme"
+    >
       <QueryClientProvider client={queryClient}>
         <RouterProvider router={router} />
         <Toaster />

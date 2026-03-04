@@ -9,7 +9,10 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  Moon,
+  Sun,
 } from "lucide-react";
+import { useTheme } from "next-themes";
 import { useState } from "react";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 
@@ -18,6 +21,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { theme, setTheme } = useTheme();
+
+  const toggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
 
   const handleLogout = async () => {
     await clear();
@@ -121,6 +127,24 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
+              size="icon"
+              onClick={toggleTheme}
+              className="text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              title={
+                theme === "dark"
+                  ? "Switch to Light Mode"
+                  : "Switch to Dark Mode"
+              }
+              data-ocid="settings.theme.toggle"
+            >
+              {theme === "dark" ? (
+                <Sun className="h-4 w-4" />
+              ) : (
+                <Moon className="h-4 w-4" />
+              )}
+            </Button>
+            <Button
+              variant="ghost"
               size="sm"
               onClick={handleLogout}
               className="hidden sm:flex items-center gap-2 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
@@ -159,7 +183,20 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </div>
                 <div className="flex flex-col gap-1">
                   <NavLinks onClick={() => setMobileMenuOpen(false)} />
-                  <div className="mt-4 pt-4 border-t border-border/50">
+                  <div className="mt-4 pt-4 border-t border-border/50 flex flex-col gap-1">
+                    <Button
+                      variant="ghost"
+                      onClick={toggleTheme}
+                      className="w-full justify-start text-muted-foreground hover:text-foreground hover:bg-secondary"
+                      data-ocid="settings.theme.toggle"
+                    >
+                      {theme === "dark" ? (
+                        <Sun className="h-4 w-4 mr-2" />
+                      ) : (
+                        <Moon className="h-4 w-4 mr-2" />
+                      )}
+                      {theme === "dark" ? "Light Mode" : "Dark Mode"}
+                    </Button>
                     <Button
                       variant="ghost"
                       onClick={handleLogout}

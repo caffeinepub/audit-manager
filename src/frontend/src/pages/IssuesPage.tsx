@@ -247,6 +247,9 @@ export default function IssuesPage() {
                     <TableHead className="text-muted-foreground/70 text-[11px] tracking-[0.1em] uppercase font-semibold hidden md:table-cell">
                       Engagement
                     </TableHead>
+                    <TableHead className="text-muted-foreground/70 text-[11px] tracking-[0.1em] uppercase font-semibold hidden md:table-cell">
+                      Account Head
+                    </TableHead>
                     <TableHead className="text-muted-foreground/70 text-[11px] tracking-[0.1em] uppercase font-semibold">
                       Risk
                     </TableHead>
@@ -296,6 +299,17 @@ export default function IssuesPage() {
                         </TableCell>
                         <TableCell className="text-muted-foreground text-sm hidden md:table-cell">
                           {engagement?.clientName ?? "Unknown"}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-sm hidden md:table-cell max-w-[140px] truncate">
+                          {tracking.accountHead ? (
+                            <span className="font-medium text-foreground/80">
+                              {tracking.accountHead}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground/40 italic text-xs">
+                              —
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell>
                           <Badge className={getRiskBadgeClass(issue.riskLevel)}>

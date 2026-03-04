@@ -50,6 +50,7 @@ export default function CreateIssueModal({
 
   // Core issue fields
   const [description, setDescription] = useState("");
+  const [accountHead, setAccountHead] = useState("");
   const [engagementId, setEngagementId] = useState<string>("");
   const [monetaryImpact, setMonetaryImpact] = useState("");
   const [riskLevel, setRiskLevel] = useState<RiskLevel>(RiskLevel.low);
@@ -77,6 +78,7 @@ export default function CreateIssueModal({
 
       // Load tracking from localStorage
       const tracking = getIssueTracking(editingIssue.id.toString());
+      setAccountHead(tracking.accountHead ?? "");
       setResponsibleOfficer(tracking.responsibleOfficer);
       setTargetCompletionDate(tracking.targetCompletionDate);
       setClientResponse(tracking.clientResponse);
@@ -89,6 +91,7 @@ export default function CreateIssueModal({
 
   const resetForm = () => {
     setDescription("");
+    setAccountHead("");
     setEngagementId("");
     setMonetaryImpact("");
     setRiskLevel(RiskLevel.low);
@@ -150,6 +153,7 @@ export default function CreateIssueModal({
 
       // Save tracking data to localStorage
       saveIssueTracking(savedIssueId, {
+        accountHead: accountHead.trim(),
         responsibleOfficer: responsibleOfficer.trim(),
         targetCompletionDate,
         clientResponse: clientResponse.trim(),
@@ -191,6 +195,17 @@ export default function CreateIssueModal({
               rows={3}
               required
               data-ocid="issue.description.textarea"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="accountHead">Account Head</Label>
+            <Input
+              id="accountHead"
+              value={accountHead}
+              onChange={(e) => setAccountHead(e.target.value)}
+              placeholder="e.g. Trade and Other Payables, Cash & Bank..."
+              data-ocid="issue.account_head.input"
             />
           </div>
 
