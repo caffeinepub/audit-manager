@@ -1,0 +1,182 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ────────────────────────────────────────────────────────────
+   Playfair Display — elegant serif for headings
+   ──────────────────────────────────────────────────────────── */
+@font-face {
+  font-family: 'Playfair Display';
+  src: url('/assets/fonts/PlayfairDisplay-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ────────────────────────────────────────────────────────────
+   Outfit — clean professional body font
+   ──────────────────────────────────────────────────────────── */
+@font-face {
+  font-family: 'Outfit';
+  src: url('/assets/fonts/Outfit-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ────────────────────────────────────────────────────────────
+   JetBrains Mono — tabular numbers / code
+   ──────────────────────────────────────────────────────────── */
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/assets/fonts/JetBrainsMono-Variable.woff2') format('woff2');
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    --radius: 0.5rem;
+
+    /* ── GREY & PEACH PINK PROFESSIONAL THEME (LIGHT MODE) ── */
+
+    /* Very light warm grey background */
+    --background: 0.97 0.005 60;
+    --foreground: 0.18 0.01 60;
+
+    /* White/near-white card surface */
+    --card: 1.0 0 0;
+    --card-foreground: 0.18 0.01 60;
+    --popover: 0.99 0.003 60;
+    --popover-foreground: 0.18 0.01 60;
+
+    /* Warm peach-pink primary */
+    --primary: 0.62 0.13 30;
+    --primary-foreground: 1.0 0 0;
+
+    /* Light grey secondary */
+    --secondary: 0.93 0.004 60;
+    --secondary-foreground: 0.22 0.01 60;
+
+    /* Slightly darker grey muted */
+    --muted: 0.90 0.006 60;
+    --muted-foreground: 0.50 0.01 60;
+
+    /* Lighter peach accent */
+    --accent: 0.82 0.10 30;
+    --accent-foreground: 0.18 0.01 60;
+
+    /* Muted red destructive */
+    --destructive: 0.55 0.20 25;
+    --destructive-foreground: 1.0 0 0;
+
+    /* Amber warning */
+    --warning: 0.72 0.16 65;
+    --warning-foreground: 0.15 0.01 60;
+
+    /* Muted green success */
+    --success: 0.55 0.13 145;
+    --success-foreground: 1.0 0 0;
+
+    /* Light grey borders */
+    --border: 0.88 0.006 60;
+    --input: 0.92 0.005 60;
+    --ring: 0.62 0.13 30;
+
+    /* Peach-pink toned charts */
+    --chart-1: 0.62 0.13 30;
+    --chart-2: 0.72 0.10 30;
+    --chart-3: 0.82 0.08 30;
+    --chart-4: 0.55 0.20 25;
+    --chart-5: 0.55 0.13 145;
+
+    /* Sidebar — slightly off-white */
+    --sidebar: 0.96 0.005 60;
+    --sidebar-foreground: 0.18 0.01 60;
+    --sidebar-primary: 0.62 0.13 30;
+    --sidebar-primary-foreground: 1.0 0 0;
+    --sidebar-accent: 0.93 0.004 60;
+    --sidebar-accent-foreground: 0.62 0.13 30;
+    --sidebar-border: 0.88 0.006 60;
+    --sidebar-ring: 0.62 0.13 30;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Outfit', ui-sans-serif, system-ui, sans-serif;
+    font-feature-settings: 'cv05', 'cv10', 'ss01';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-optical-sizing: auto;
+  }
+
+  .font-serif {
+    font-family: 'Playfair Display', Georgia, serif;
+  }
+
+  .font-mono,
+  .tabular-nums {
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Peach-pink tinted text utility */
+  .text-accent-primary {
+    color: oklch(var(--primary));
+  }
+
+  /* Peach-pink ring on focus/hover */
+  .accent-ring {
+    box-shadow: 0 0 0 2px oklch(var(--primary) / 0.35);
+  }
+
+  /* Subtle accent divider line */
+  .accent-divider {
+    border-color: oklch(var(--primary) / 0.25);
+  }
+
+  /* Premium card with soft peach tint */
+  .card-premium {
+    border-color: oklch(var(--primary) / 0.15);
+    background: linear-gradient(
+      135deg,
+      oklch(var(--card)) 0%,
+      oklch(0.97 0.008 30) 100%
+    );
+  }
+
+  /* Metric card peach accent top border */
+  .metric-card::before {
+    content: '';
+    display: block;
+    height: 2px;
+    background: linear-gradient(90deg, oklch(var(--primary)), oklch(var(--accent) / 0.5));
+    border-radius: var(--radius) var(--radius) 0 0;
+    margin: -1px -1px 0;
+  }
+
+  /* Subtle row hover with peach tint */
+  .row-hover {
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+  }
+
+  .row-hover:hover {
+    background-color: oklch(var(--primary) / 0.05);
+    border-color: oklch(var(--primary) / 0.30);
+  }
+}
