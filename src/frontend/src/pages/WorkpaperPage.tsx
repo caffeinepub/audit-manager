@@ -366,9 +366,11 @@ export default function WorkpaperPage() {
             <p className="text-sm font-semibold text-primary mb-1 tracking-wide">
               Account Head Definition
             </p>
-            <p className="text-sm text-foreground/80 whitespace-pre-wrap">
-              {section.formula}
-            </p>
+            <p
+              className="text-sm text-foreground/80 leading-relaxed rich-text-content"
+              // biome-ignore lint/security/noDangerouslySetInnerHtml: user-authored rich text
+              dangerouslySetInnerHTML={{ __html: section.formula }}
+            />
           </div>
         </div>
       )}

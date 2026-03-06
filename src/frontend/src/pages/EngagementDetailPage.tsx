@@ -40,6 +40,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { format } from "date-fns";
 import {
@@ -459,12 +460,19 @@ function buildAuditObservationReport(data: {
 </html>`;
 }
 
+// ── Date conversion helpers (nanosecond timestamps ↔ YYYY-MM-DD strings) ──
+const tsToDateStr = (ts: bigint) =>
+  new Date(Number(ts) / 1_000_000).toISOString().split("T")[0];
+const dateStrToTs = (s: string): bigint =>
+  BigInt(new Date(s).getTime()) * 1_000_000n;
+
 export default function EngagementDetailPage() {
   const { engagementId } = useParams({ strict: false });
   const navigate = useNavigate();
   const { identity } = useInternetIdentity();
   const { actor } = useActor();
   const engId = engagementId ? BigInt(engagementId) : null;
+  const queryClient = useQueryClient();
 
   const { data: engagement, isLoading: engagementLoading } =
     useGetEngagementDetails(engId);
@@ -473,6 +481,39 @@ export default function EngagementDetailPage() {
   const createSection = useCreateSection();
   const deleteSection = useDeleteSection();
   const updateSection = useUpdateSection();
+
+  // ── Engagement details edit state ───────────────────────────
+  const [engEditMode, setEngEditMode] = useState(false);
+  const [engSnapshot, setEngSnapshot] = useState<{
+    materialityAmount: number;
+    auditStartDate: string;
+    auditEndDate: string;
+  } | null>(null);
+  const [editMaterialityAmount, setEditMaterialityAmount] = useState(0);
+  const [editAuditStartDate, setEditAuditStartDate] = useState("");
+  const [editAuditEndDate, setEditAuditEndDate] = useState("");
+
+  const handleSaveEngagementEdit = async () => {
+    if (!engId || !engagement || !actor) return;
+    try {
+      await actor.updateEngagement(engId, {
+        ...engagement,
+        materialityAmount: editMaterialityAmount,
+        auditStartDate: dateStrToTs(editAuditStartDate),
+        auditEndDate: dateStrToTs(editAuditEndDate),
+        updatedAt: BigInt(Date.now() * 1_000_000),
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["engagement", engId.toString()],
+      });
+      setEngEditMode(false);
+      setEngSnapshot(null);
+      toast.success("Engagement details updated");
+    } catch (err) {
+      toast.error("Failed to update engagement details");
+      console.error(err);
+    }
+  };
 
   const [addSectionOpen, setAddSectionOpen] = useState(false);
   const [newSectionName, setNewSectionName] = useState("");
@@ -1110,13 +1151,41 @@ export default function EngagementDetailPage() {
         {/* Engagement Details Card */}
         <Card className="border-border/60 bg-card overflow-hidden">
           <div className="h-[2px] bg-gradient-to-r from-primary/60 via-primary/90 to-primary/30" />
-          <CardHeader>
-            <CardTitle className="font-serif text-3xl text-foreground">
-              {engagement?.clientName ?? <Skeleton className="h-8 w-64" />}
-            </CardTitle>
-            <CardDescription>Audit engagement details</CardDescription>
+          <CardHeader className="border-b border-border/40">
+            <div className="flex items-center gap-3">
+              <div className="flex-1 min-w-0">
+                <CardTitle className="font-serif text-3xl text-foreground">
+                  {engagement?.clientName ?? <Skeleton className="h-8 w-64" />}
+                </CardTitle>
+                <CardDescription>Audit engagement details</CardDescription>
+              </div>
+              {!engEditMode && engagement && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setEngSnapshot({
+                      materialityAmount: engagement.materialityAmount,
+                      auditStartDate: tsToDateStr(engagement.auditStartDate),
+                      auditEndDate: tsToDateStr(engagement.auditEndDate),
+                    });
+                    setEditMaterialityAmount(engagement.materialityAmount);
+                    setEditAuditStartDate(
+                      tsToDateStr(engagement.auditStartDate),
+                    );
+                    setEditAuditEndDate(tsToDateStr(engagement.auditEndDate));
+                    setEngEditMode(true);
+                  }}
+                  className="gap-1.5 border-border/60 hover:border-primary/50 hover:bg-primary/5 hover:text-primary transition-all shrink-0"
+                  data-ocid="engagement.details.edit.button"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  Edit
+                </Button>
+              )}
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             {engagementLoading ? (
               <div className="space-y-3">
                 {[1, 2, 3].map((i) => (
@@ -1124,74 +1193,154 @@ export default function EngagementDetailPage() {
                 ))}
               </div>
             ) : engagement ? (
-              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                <div className="space-y-1">
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">
-                    Financial Year
-                  </p>
-                  <p className="font-mono tabular-nums font-semibold text-foreground text-lg">
-                    {Number(engagement.financialYear)}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">
-                    Type
-                  </p>
-                  <Badge
-                    className={
-                      engagement.engagementType === "external"
-                        ? "bg-primary/15 text-primary border-primary/30"
-                        : "bg-secondary text-muted-foreground border-border/50"
-                    }
-                  >
-                    {engagement.engagementType}
-                  </Badge>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">
-                    Materiality Amount
-                  </p>
-                  <p className="font-mono tabular-nums font-semibold text-foreground text-lg">
-                    ${engagement.materialityAmount.toLocaleString()}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">
-                    Start Date
-                  </p>
-                  <p className="font-mono tabular-nums text-sm text-foreground">
-                    {format(
-                      new Date(Number(engagement.auditStartDate) / 1_000_000),
-                      "MMM dd, yyyy",
+              <>
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="space-y-1">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">
+                      Financial Year
+                    </p>
+                    <p className="font-mono tabular-nums font-semibold text-foreground text-lg">
+                      {Number(engagement.financialYear)}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">
+                      Type
+                    </p>
+                    <Badge
+                      className={
+                        engagement.engagementType === "external"
+                          ? "bg-primary/15 text-primary border-primary/30"
+                          : "bg-secondary text-muted-foreground border-border/50"
+                      }
+                    >
+                      {engagement.engagementType}
+                    </Badge>
+                  </div>
+
+                  {/* Materiality Amount — editable in edit mode */}
+                  <div className="space-y-1">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">
+                      Materiality Amount
+                    </p>
+                    {engEditMode ? (
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={editMaterialityAmount}
+                        onChange={(e) =>
+                          setEditMaterialityAmount(
+                            Number.parseFloat(e.target.value) || 0,
+                          )
+                        }
+                        className="font-mono bg-secondary/40 border-border/50 focus:border-primary/50"
+                        data-ocid="engagement.details.materiality.input"
+                      />
+                    ) : (
+                      <p className="font-mono tabular-nums font-semibold text-foreground text-lg">
+                        ${engagement.materialityAmount.toLocaleString()}
+                      </p>
                     )}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">
-                    End Date
-                  </p>
-                  <p className="font-mono tabular-nums text-sm text-foreground">
-                    {format(
-                      new Date(Number(engagement.auditEndDate) / 1_000_000),
-                      "MMM dd, yyyy",
+                  </div>
+
+                  {/* Start Date — editable in edit mode */}
+                  <div className="space-y-1">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">
+                      Start Date
+                    </p>
+                    {engEditMode ? (
+                      <Input
+                        type="date"
+                        value={editAuditStartDate}
+                        onChange={(e) => setEditAuditStartDate(e.target.value)}
+                        className="bg-secondary/40 border-border/50 focus:border-primary/50"
+                        data-ocid="engagement.details.start_date.input"
+                      />
+                    ) : (
+                      <p className="font-mono tabular-nums text-sm text-foreground">
+                        {format(
+                          new Date(
+                            Number(engagement.auditStartDate) / 1_000_000,
+                          ),
+                          "MMM dd, yyyy",
+                        )}
+                      </p>
                     )}
-                  </p>
+                  </div>
+
+                  {/* End Date — editable in edit mode */}
+                  <div className="space-y-1">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">
+                      End Date
+                    </p>
+                    {engEditMode ? (
+                      <Input
+                        type="date"
+                        value={editAuditEndDate}
+                        onChange={(e) => setEditAuditEndDate(e.target.value)}
+                        className="bg-secondary/40 border-border/50 focus:border-primary/50"
+                        data-ocid="engagement.details.end_date.input"
+                      />
+                    ) : (
+                      <p className="font-mono tabular-nums text-sm text-foreground">
+                        {format(
+                          new Date(Number(engagement.auditEndDate) / 1_000_000),
+                          "MMM dd, yyyy",
+                        )}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-1">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">
+                      Status
+                    </p>
+                    <Badge
+                      className={
+                        engagement.finalized
+                          ? "bg-success/15 text-success border-success/30"
+                          : "bg-primary/10 text-primary border-primary/20"
+                      }
+                    >
+                      {engagement.finalized ? "Finalized" : "In Progress"}
+                    </Badge>
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">
-                    Status
-                  </p>
-                  <Badge
-                    className={
-                      engagement.finalized
-                        ? "bg-success/15 text-success border-success/30"
-                        : "bg-primary/10 text-primary border-primary/20"
-                    }
-                  >
-                    {engagement.finalized ? "Finalized" : "In Progress"}
-                  </Badge>
-                </div>
-              </div>
+
+                {/* Save / Cancel row — only visible in edit mode */}
+                {engEditMode && (
+                  <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-border/40">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        if (engSnapshot) {
+                          setEditMaterialityAmount(
+                            engSnapshot.materialityAmount,
+                          );
+                          setEditAuditStartDate(engSnapshot.auditStartDate);
+                          setEditAuditEndDate(engSnapshot.auditEndDate);
+                        }
+                        setEngEditMode(false);
+                        setEngSnapshot(null);
+                      }}
+                      className="border-border/60 hover:border-border gap-1.5"
+                      data-ocid="engagement.details.cancel.button"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={handleSaveEngagementEdit}
+                      className="shadow-accent-sm hover:shadow-accent-md transition-shadow gap-1.5"
+                      data-ocid="engagement.details.save.button"
+                    >
+                      Save Changes
+                    </Button>
+                  </div>
+                )}
+              </>
             ) : null}
           </CardContent>
         </Card>
@@ -1854,17 +2003,17 @@ export default function EngagementDetailPage() {
             <form onSubmit={handleSaveFormula} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="formulaText">Formula / Description</Label>
-                <Textarea
-                  id="formulaText"
+                <RichTextEditor
                   value={formulaEditValue}
-                  onChange={(e) => setFormulaEditValue(e.target.value)}
-                  placeholder="e.g., Trade Payables = amounts owed to suppliers for goods/services received but not yet paid. Includes creditors and accrued expenses."
-                  rows={5}
-                  className="resize-none bg-secondary/40 border-border/50 focus:border-primary/50"
+                  onChange={setFormulaEditValue}
+                  placeholder="Enter the account head definition, audit assertions, key reminders, or any formula that guides your work on this account..."
+                  minHeight={140}
+                  data-ocid="section.formula.editor"
                 />
                 <p className="text-xs text-muted-foreground">
                   Examples: definitions, accounting treatments, typical line
-                  items, relevant standards (IFRS/GAAP).
+                  items, relevant standards (IFRS/GAAP). Use bold, bullets,
+                  colour, and underline to highlight key points.
                 </p>
               </div>
               <div className="flex justify-end gap-3">
