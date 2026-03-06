@@ -148,7 +148,7 @@ export interface backendInterface {
     registerUser(authData: AuthenticationInput): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     saveDocument(document: Document): Promise<void>;
-    saveEngagement(engagement: Engagement, _sections: Array<Section>, _workpapers: Array<Workpaper>, _issues: Array<Issue>): Promise<void>;
+    saveEngagement(engagement: Engagement, inputSections: Array<Section>, _workpapers: Array<Workpaper>, _issues: Array<Issue>): Promise<void>;
     saveIssue(issue: Issue): Promise<void>;
     saveOpeningBalanceTest(test: OpeningBalanceTest): Promise<void>;
     saveWorkpaper(workpaper: Workpaper): Promise<void>;

@@ -45,6 +45,7 @@ import { format } from "date-fns";
 import {
   AlertTriangle,
   ArrowLeft,
+  BookMarked,
   BookOpen,
   BrainCircuit,
   ChevronDown,
@@ -67,6 +68,7 @@ import {
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { Section } from "../backend";
+import { RichTextEditor } from "../components/RichTextEditor";
 import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
@@ -77,6 +79,7 @@ import {
   useUpdateSection,
 } from "../hooks/useQueries";
 import { type SummaryInput, generateAISummary } from "../utils/aiSummary";
+import { getIssueTracking } from "../utils/issueTracking";
 import {
   type ReportData,
   downloadCSV,
@@ -92,6 +95,8 @@ const ASSERTION_LABELS: Record<string, string> = {
   valuation: "Valuation & Allocation",
   rights: "Rights & Obligations",
   presentation: "Presentation & Disclosure",
+  accuracy: "Accuracy",
+  cutoff: "Cut-Off",
 };
 
 // ── HTML Report Builder ─────────────────────────────────────
@@ -489,6 +494,23 @@ export default function EngagementDetailPage() {
   const [aiSummaryModalOpen, setAiSummaryModalOpen] = useState(false);
   const [generatingSummary, setGeneratingSummary] = useState(false);
 
+  // Materiality edit mode
+  const [materialityEditMode, setMaterialityEditMode] = useState(false);
+  // Snapshot for cancel
+  const [materialitySnapshot, setMaterialitySnapshot] = useState<{
+    clientDescription: string;
+    riskAccounts: string;
+    salesRevenue: string;
+    tbUnbalancedAccounts: Array<{
+      id: string;
+      accountName: string;
+      variance: string;
+    }>;
+  } | null>(null);
+
+  // Engagement Notes (rich text, localStorage)
+  const [engagementNotes, setEngagementNotes] = useState("");
+
   // Materiality & Client Profile state (persisted to localStorage)
   const [clientDescription, setClientDescription] = useState("");
   const [riskAccounts, setRiskAccounts] = useState("");
@@ -541,6 +563,28 @@ export default function EngagementDetailPage() {
     salesRevenue,
     tbUnbalancedAccounts,
   ]);
+
+  // Load engagement notes from localStorage
+  useEffect(() => {
+    if (!engagementId) return;
+    try {
+      const stored = localStorage.getItem(
+        `engagement-rich-notes-${engagementId}`,
+      );
+      if (stored) setEngagementNotes(stored);
+    } catch {
+      // ignore
+    }
+  }, [engagementId]);
+
+  // Save engagement notes to localStorage
+  useEffect(() => {
+    if (!engagementId) return;
+    localStorage.setItem(
+      `engagement-rich-notes-${engagementId}`,
+      engagementNotes,
+    );
+  }, [engagementId, engagementNotes]);
 
   // Formula editor state
   const [formulaEditSection, setFormulaEditSection] = useState<Section | null>(
@@ -629,8 +673,8 @@ export default function EngagementDetailPage() {
           ),
         ]);
 
-      // Read localStorage data for each section
-      const sectionData = sectionWorkpapers.map(({ section, workpaper }) => {
+      // Read localStorage data for each section, then filter out empty sections
+      const allSectionData = sectionWorkpapers.map(({ section, workpaper }) => {
         let auditNotes = "";
         let assertions: AuditAssertions | null = null;
         try {
@@ -667,6 +711,16 @@ export default function EngagementDetailPage() {
           auditNotes,
           assertions,
         };
+      });
+
+      // Only include sections that have at least some data captured
+      const sectionData = allSectionData.filter((s) => {
+        const hasWorkpaper = s.workpaper !== null;
+        const hasNotes = s.auditNotes.trim().length > 0;
+        const hasAssertions =
+          s.assertions !== null &&
+          Object.values(s.assertions).some((v) => v.checked);
+        return hasWorkpaper || hasNotes || hasAssertions;
       });
 
       // Read materiality from localStorage
@@ -730,18 +784,62 @@ export default function EngagementDetailPage() {
         financialYear: Number(engagement.financialYear),
         engagementType: engagement.engagementType,
         materialityAmount: engagement.materialityAmount,
-        issues: issues.map((iss) => ({
-          description: iss.description,
-          riskLevel: iss.riskLevel,
-          monetaryImpact: iss.monetaryImpact,
-          status: iss.status,
-          recommendations: iss.recommendations,
-          managementResponse: iss.managementResponse,
+        auditStartDate: format(
+          new Date(Number(engagement.auditStartDate) / 1_000_000),
+          "dd MMMM yyyy",
+        ),
+        auditEndDate: format(
+          new Date(Number(engagement.auditEndDate) / 1_000_000),
+          "dd MMMM yyyy",
+        ),
+        auditStatus: engagement.finalized ? "Finalized" : "In Progress",
+        materiality: {
+          clientDescription: materialityData.clientDescription,
+          riskAccounts: materialityData.riskAccounts,
+          salesRevenue: materialityData.salesRevenue,
+          tbUnbalancedAccounts: materialityData.tbUnbalancedAccounts,
+        },
+        openingBalanceTests: openingBalanceTests.map((t) => ({
+          accountName: t.accountName,
+          priorYearClosingBalance: t.priorYearClosingBalance,
+          currentYearOpeningBalance: t.currentYearOpeningBalance,
+          difference: t.currentYearOpeningBalance - t.priorYearClosingBalance,
+          notes: t.notes,
         })),
+        issues: issues.map((iss) => {
+          const tracking = getIssueTracking(iss.id.toString());
+          return {
+            description: iss.description,
+            riskLevel: iss.riskLevel,
+            monetaryImpact: iss.monetaryImpact,
+            status: iss.status,
+            recommendations: iss.recommendations,
+            managementResponse: iss.managementResponse,
+            responsibleOfficer: tracking.responsibleOfficer,
+            targetCompletionDate: tracking.targetCompletionDate,
+            clientResponse: tracking.clientResponse,
+            followUpStatus: tracking.followUpStatus,
+            followUpNotes: tracking.followUpNotes,
+            accountHead: tracking.accountHead,
+          };
+        }),
         sections: sectionData.map((s) => ({
           name: s.name,
+          formula: s.formula,
+          auditNotes: s.auditNotes,
+          assertions: s.assertions
+            ? Object.entries(s.assertions).map(([key, val]) => ({
+                label: ASSERTION_LABELS[key] ?? key,
+                checked: val.checked,
+                notes: val.notes,
+              }))
+            : undefined,
           workpaper: s.workpaper
             ? {
+                auditObjective: s.workpaper.auditObjective,
+                proceduresPerformed: s.workpaper.proceduresPerformed,
+                sampleDetails: s.workpaper.sampleDetails,
+                evidenceDescription: s.workpaper.evidenceDescription,
                 generalLedgerTotal: s.workpaper.generalLedgerTotal,
                 trialBalanceTotal: s.workpaper.trialBalanceTotal,
                 riskRating: s.workpaper.riskRating,
@@ -1106,7 +1204,7 @@ export default function EngagementDetailPage() {
               <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
                 <BookOpen className="h-5 w-5 text-primary" />
               </div>
-              <div>
+              <div className="flex-1">
                 <CardTitle className="font-serif text-2xl text-foreground">
                   Materiality &amp; Client Profile
                 </CardTitle>
@@ -1114,6 +1212,28 @@ export default function EngagementDetailPage() {
                   Key engagement context, risk profile, and audit assertions
                 </CardDescription>
               </div>
+              {!materialityEditMode && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setMaterialitySnapshot({
+                      clientDescription,
+                      riskAccounts,
+                      salesRevenue,
+                      tbUnbalancedAccounts: tbUnbalancedAccounts.map((a) => ({
+                        ...a,
+                      })),
+                    });
+                    setMaterialityEditMode(true);
+                  }}
+                  className="gap-1.5 border-border/60 hover:border-primary/50 hover:bg-primary/5 hover:text-primary transition-all shrink-0"
+                  data-ocid="materiality.edit.button"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  Edit
+                </Button>
+              )}
             </div>
           </CardHeader>
           <CardContent className="pt-6 space-y-6">
@@ -1132,210 +1252,332 @@ export default function EngagementDetailPage() {
               </div>
             )}
 
-            {/* 2-column grid for the four new fields */}
-            <div className="grid gap-6 sm:grid-cols-2">
-              {/* 1. What does the client actually do? */}
-              <div className="space-y-2 sm:col-span-2">
-                <Label
-                  htmlFor="clientDescription"
-                  className="flex items-center gap-2 text-sm font-semibold text-foreground"
-                >
-                  <BookOpen className="h-4 w-4 text-primary" />
-                  What does the client actually do?
-                </Label>
-                <Textarea
-                  id="clientDescription"
-                  value={clientDescription}
-                  onChange={(e) => setClientDescription(e.target.value)}
-                  placeholder="Describe the client's business, industry, and main activities..."
-                  rows={3}
-                  data-ocid="materiality.client_description.textarea"
-                  className="bg-secondary/40 border-border/50 focus:border-primary/50 resize-none"
-                />
-              </div>
+            {/* READ-ONLY VIEW */}
+            {!materialityEditMode && (
+              <div className="grid gap-6 sm:grid-cols-2">
+                {/* 1. What does the client do? */}
+                <div className="space-y-1.5 sm:col-span-2">
+                  <p className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">
+                    <BookOpen className="h-3.5 w-3.5 text-primary" />
+                    What does the client actually do?
+                  </p>
+                  <p className="text-sm text-foreground whitespace-pre-wrap rounded-md bg-secondary/30 border border-border/40 px-3 py-2 min-h-[60px]">
+                    {clientDescription || (
+                      <span className="text-muted-foreground/50 italic">
+                        Not provided
+                      </span>
+                    )}
+                  </p>
+                </div>
 
-              {/* 2. Risk / Significant Account Heads */}
-              <div className="space-y-2">
-                <Label
-                  htmlFor="riskAccounts"
-                  className="flex items-center gap-2 text-sm font-semibold text-foreground"
-                >
-                  <ShieldAlert className="h-4 w-4 text-primary" />
-                  Risk / Significant Account Heads
-                </Label>
-                <Textarea
-                  id="riskAccounts"
-                  value={riskAccounts}
-                  onChange={(e) => setRiskAccounts(e.target.value)}
-                  placeholder="List the significant or high-risk accounts (e.g. Revenue, Trade Receivables, Inventory)..."
-                  rows={3}
-                  data-ocid="materiality.risk_accounts.textarea"
-                  className="bg-secondary/40 border-border/50 focus:border-primary/50 resize-none"
-                />
-              </div>
+                {/* 2. Risk / Significant Account Heads */}
+                <div className="space-y-1.5">
+                  <p className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">
+                    <ShieldAlert className="h-3.5 w-3.5 text-primary" />
+                    Risk / Significant Account Heads
+                  </p>
+                  <p className="text-sm text-foreground whitespace-pre-wrap rounded-md bg-secondary/30 border border-border/40 px-3 py-2 min-h-[60px]">
+                    {riskAccounts || (
+                      <span className="text-muted-foreground/50 italic">
+                        Not provided
+                      </span>
+                    )}
+                  </p>
+                </div>
 
-              {/* 3. Sales and Total Revenue */}
-              <div className="space-y-2">
-                <Label
-                  htmlFor="salesRevenue"
-                  className="flex items-center gap-2 text-sm font-semibold text-foreground"
-                >
-                  <TrendingUp className="h-4 w-4 text-primary" />
-                  Sales &amp; Total Revenue
-                </Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-mono text-sm pointer-events-none">
-                    $
-                  </span>
-                  <Input
-                    id="salesRevenue"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={salesRevenue}
-                    onChange={(e) => setSalesRevenue(e.target.value)}
-                    placeholder="0.00"
-                    data-ocid="materiality.sales_revenue.input"
-                    className="pl-7 font-mono bg-secondary/40 border-border/50 focus:border-primary/50"
+                {/* 3. Sales and Total Revenue */}
+                <div className="space-y-1.5">
+                  <p className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">
+                    <TrendingUp className="h-3.5 w-3.5 text-primary" />
+                    Sales &amp; Total Revenue
+                  </p>
+                  <p className="font-mono tabular-nums font-semibold text-foreground text-lg rounded-md bg-secondary/30 border border-border/40 px-3 py-2">
+                    {salesRevenue && Number(salesRevenue) > 0 ? (
+                      `$${Number(salesRevenue).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                    ) : (
+                      <span className="text-muted-foreground/50 italic text-sm font-normal">
+                        Not provided
+                      </span>
+                    )}
+                  </p>
+                </div>
+
+                {/* 4. TB Accounts (read-only) */}
+                <div className="space-y-2 sm:col-span-2">
+                  <p className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">
+                    <AlertTriangle className="h-3.5 w-3.5 text-primary" />
+                    TB Accounts That Do Not Balance
+                  </p>
+                  {tbUnbalancedAccounts.length === 0 ? (
+                    <p className="text-sm text-muted-foreground/50 italic px-3 py-2 rounded-md bg-secondary/30 border border-border/40">
+                      No unbalanced TB accounts recorded.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {tbUnbalancedAccounts.map((row, idx) => (
+                        <div
+                          key={row.id}
+                          className="flex gap-4 px-3 py-2 rounded-md bg-secondary/30 border border-border/40"
+                          data-ocid={`materiality.tb_accounts.item.${idx + 1}`}
+                        >
+                          <p className="font-semibold text-sm text-foreground shrink-0 min-w-[120px]">
+                            {row.accountName || "—"}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {row.variance || "—"}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* EDIT MODE */}
+            {materialityEditMode && (
+              <div className="grid gap-6 sm:grid-cols-2">
+                {/* 1. What does the client actually do? */}
+                <div className="space-y-2 sm:col-span-2">
+                  <Label
+                    htmlFor="clientDescription"
+                    className="flex items-center gap-2 text-sm font-semibold text-foreground"
+                  >
+                    <BookOpen className="h-4 w-4 text-primary" />
+                    What does the client actually do?
+                  </Label>
+                  <Textarea
+                    id="clientDescription"
+                    value={clientDescription}
+                    onChange={(e) => setClientDescription(e.target.value)}
+                    placeholder="Describe the client's business, industry, and main activities..."
+                    rows={3}
+                    data-ocid="materiality.client_description.textarea"
+                    className="bg-secondary/40 border-border/50 focus:border-primary/50 resize-none"
                   />
                 </div>
-                {salesRevenue && Number(salesRevenue) > 0 && (
-                  <p className="text-xs text-primary/70 font-mono">
-                    = $
-                    {Number(salesRevenue).toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </p>
-                )}
-              </div>
 
-              {/* 4. TB Accounts that do not balance */}
-              <div className="space-y-3 sm:col-span-2">
-                <div className="flex items-center justify-between">
-                  <Label className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                    <AlertTriangle className="h-4 w-4 text-primary" />
-                    TB Accounts That Do Not Balance
+                {/* 2. Risk / Significant Account Heads */}
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="riskAccounts"
+                    className="flex items-center gap-2 text-sm font-semibold text-foreground"
+                  >
+                    <ShieldAlert className="h-4 w-4 text-primary" />
+                    Risk / Significant Account Heads
                   </Label>
+                  <Textarea
+                    id="riskAccounts"
+                    value={riskAccounts}
+                    onChange={(e) => setRiskAccounts(e.target.value)}
+                    placeholder="List the significant or high-risk accounts (e.g. Revenue, Trade Receivables, Inventory)..."
+                    rows={3}
+                    data-ocid="materiality.risk_accounts.textarea"
+                    className="bg-secondary/40 border-border/50 focus:border-primary/50 resize-none"
+                  />
+                </div>
+
+                {/* 3. Sales and Total Revenue */}
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="salesRevenue"
+                    className="flex items-center gap-2 text-sm font-semibold text-foreground"
+                  >
+                    <TrendingUp className="h-4 w-4 text-primary" />
+                    Sales &amp; Total Revenue
+                  </Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-mono text-sm pointer-events-none">
+                      $
+                    </span>
+                    <Input
+                      id="salesRevenue"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={salesRevenue}
+                      onChange={(e) => setSalesRevenue(e.target.value)}
+                      placeholder="0.00"
+                      data-ocid="materiality.sales_revenue.input"
+                      className="pl-7 font-mono bg-secondary/40 border-border/50 focus:border-primary/50"
+                    />
+                  </div>
+                  {salesRevenue && Number(salesRevenue) > 0 && (
+                    <p className="text-xs text-primary/70 font-mono">
+                      = $
+                      {Number(salesRevenue).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </p>
+                  )}
+                </div>
+
+                {/* 4. TB Accounts that do not balance */}
+                <div className="space-y-3 sm:col-span-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                      <AlertTriangle className="h-4 w-4 text-primary" />
+                      TB Accounts That Do Not Balance
+                    </Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setTbUnbalancedAccounts((prev) => [
+                          ...prev,
+                          {
+                            id: crypto.randomUUID(),
+                            accountName: "",
+                            variance: "",
+                          },
+                        ])
+                      }
+                      className="gap-1.5 border-border/60 hover:border-primary/50 hover:bg-primary/5 hover:text-primary transition-all text-xs"
+                      data-ocid="materiality.tb_accounts.add_button"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Add Account
+                    </Button>
+                  </div>
+
+                  {tbUnbalancedAccounts.length === 0 ? (
+                    <div
+                      className="flex flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border/50 bg-secondary/20 py-6 text-center"
+                      data-ocid="materiality.tb_accounts.empty_state"
+                    >
+                      <AlertTriangle className="h-8 w-8 text-muted-foreground/40" />
+                      <p className="text-sm text-muted-foreground">
+                        No unbalanced TB accounts recorded yet.
+                      </p>
+                      <p className="text-xs text-muted-foreground/60">
+                        Click "Add Account" to record accounts where GL and TB
+                        do not agree.
+                      </p>
+                    </div>
+                  ) : (
+                    <div
+                      className="space-y-3"
+                      data-ocid="materiality.tb_accounts.list"
+                    >
+                      {/* Header row */}
+                      <div className="hidden sm:grid sm:grid-cols-[2fr_3fr_auto] gap-3 px-1">
+                        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.1em]">
+                          Account Name
+                        </p>
+                        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.1em]">
+                          Variance / Explanation of Difference Found
+                        </p>
+                      </div>
+                      {tbUnbalancedAccounts.map((row, idx) => (
+                        <div
+                          key={row.id}
+                          className="grid grid-cols-1 sm:grid-cols-[2fr_3fr_auto] gap-2 items-start p-3 rounded-md border border-border/40 bg-secondary/30"
+                          data-ocid={`materiality.tb_accounts.item.${idx + 1}`}
+                        >
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground sm:hidden">
+                              Account Name
+                            </Label>
+                            <Input
+                              value={row.accountName}
+                              onChange={(e) => {
+                                const updated = [...tbUnbalancedAccounts];
+                                updated[idx] = {
+                                  ...updated[idx],
+                                  accountName: e.target.value,
+                                };
+                                setTbUnbalancedAccounts(updated);
+                              }}
+                              placeholder="e.g. Trade Payables"
+                              className="bg-card border-border/50 focus:border-primary/50 text-sm"
+                              data-ocid={`materiality.tb_accounts.input.${idx + 1}`}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground sm:hidden">
+                              Variance / Explanation
+                            </Label>
+                            <Textarea
+                              value={row.variance}
+                              onChange={(e) => {
+                                const updated = [...tbUnbalancedAccounts];
+                                updated[idx] = {
+                                  ...updated[idx],
+                                  variance: e.target.value,
+                                };
+                                setTbUnbalancedAccounts(updated);
+                              }}
+                              placeholder="Describe what causes the variance (e.g. timing difference, unposted journal, misallocation)..."
+                              rows={2}
+                              className="bg-card border-border/50 focus:border-primary/50 text-sm resize-none"
+                              data-ocid={`materiality.tb_accounts.textarea.${idx + 1}`}
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() =>
+                              setTbUnbalancedAccounts((prev) =>
+                                prev.filter((_, i) => i !== idx),
+                              )
+                            }
+                            className="mt-1 h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                            data-ocid={`materiality.tb_accounts.delete_button.${idx + 1}`}
+                          >
+                            <XCircle className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Record each TB account where the GL and Trial Balance totals
+                    do not agree, and explain the variance found.
+                  </p>
+                </div>
+
+                {/* Save / Cancel buttons */}
+                <div className="flex items-center justify-end gap-3 sm:col-span-2 pt-2 border-t border-border/40">
                   <Button
                     type="button"
                     variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      setTbUnbalancedAccounts((prev) => [
-                        ...prev,
-                        {
-                          id: crypto.randomUUID(),
-                          accountName: "",
-                          variance: "",
-                        },
-                      ])
-                    }
-                    className="gap-1.5 border-border/60 hover:border-primary/50 hover:bg-primary/5 hover:text-primary transition-all text-xs"
-                    data-ocid="materiality.tb_accounts.add_button"
+                    onClick={() => {
+                      if (materialitySnapshot) {
+                        setClientDescription(
+                          materialitySnapshot.clientDescription,
+                        );
+                        setRiskAccounts(materialitySnapshot.riskAccounts);
+                        setSalesRevenue(materialitySnapshot.salesRevenue);
+                        setTbUnbalancedAccounts(
+                          materialitySnapshot.tbUnbalancedAccounts,
+                        );
+                      }
+                      setMaterialityEditMode(false);
+                      setMaterialitySnapshot(null);
+                    }}
+                    className="border-border/60 hover:border-border gap-1.5"
+                    data-ocid="materiality.cancel.button"
                   >
-                    <Plus className="h-3.5 w-3.5" />
-                    Add Account
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setMaterialityEditMode(false);
+                      setMaterialitySnapshot(null);
+                      toast.success("Materiality & Client Profile saved");
+                    }}
+                    className="shadow-accent-sm hover:shadow-accent-md transition-shadow gap-1.5"
+                    data-ocid="materiality.save.button"
+                  >
+                    Save Changes
                   </Button>
                 </div>
-
-                {tbUnbalancedAccounts.length === 0 ? (
-                  <div
-                    className="flex flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border/50 bg-secondary/20 py-6 text-center"
-                    data-ocid="materiality.tb_accounts.empty_state"
-                  >
-                    <AlertTriangle className="h-8 w-8 text-muted-foreground/40" />
-                    <p className="text-sm text-muted-foreground">
-                      No unbalanced TB accounts recorded yet.
-                    </p>
-                    <p className="text-xs text-muted-foreground/60">
-                      Click "Add Account" to record accounts where GL and TB do
-                      not agree.
-                    </p>
-                  </div>
-                ) : (
-                  <div
-                    className="space-y-3"
-                    data-ocid="materiality.tb_accounts.list"
-                  >
-                    {/* Header row */}
-                    <div className="hidden sm:grid sm:grid-cols-[2fr_3fr_auto] gap-3 px-1">
-                      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.1em]">
-                        Account Name
-                      </p>
-                      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.1em]">
-                        Variance / Explanation of Difference Found
-                      </p>
-                    </div>
-                    {tbUnbalancedAccounts.map((row, idx) => (
-                      <div
-                        key={row.id}
-                        className="grid grid-cols-1 sm:grid-cols-[2fr_3fr_auto] gap-2 items-start p-3 rounded-md border border-border/40 bg-secondary/30"
-                        data-ocid={`materiality.tb_accounts.item.${idx + 1}`}
-                      >
-                        <div className="space-y-1">
-                          <Label className="text-xs text-muted-foreground sm:hidden">
-                            Account Name
-                          </Label>
-                          <Input
-                            value={row.accountName}
-                            onChange={(e) => {
-                              const updated = [...tbUnbalancedAccounts];
-                              updated[idx] = {
-                                ...updated[idx],
-                                accountName: e.target.value,
-                              };
-                              setTbUnbalancedAccounts(updated);
-                            }}
-                            placeholder="e.g. Trade Payables"
-                            className="bg-card border-border/50 focus:border-primary/50 text-sm"
-                            data-ocid={`materiality.tb_accounts.input.${idx + 1}`}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs text-muted-foreground sm:hidden">
-                            Variance / Explanation
-                          </Label>
-                          <Textarea
-                            value={row.variance}
-                            onChange={(e) => {
-                              const updated = [...tbUnbalancedAccounts];
-                              updated[idx] = {
-                                ...updated[idx],
-                                variance: e.target.value,
-                              };
-                              setTbUnbalancedAccounts(updated);
-                            }}
-                            placeholder="Describe what causes the variance (e.g. timing difference, unposted journal, misallocation)..."
-                            rows={2}
-                            className="bg-card border-border/50 focus:border-primary/50 text-sm resize-none"
-                            data-ocid={`materiality.tb_accounts.textarea.${idx + 1}`}
-                          />
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() =>
-                            setTbUnbalancedAccounts((prev) =>
-                              prev.filter((_, i) => i !== idx),
-                            )
-                          }
-                          className="mt-1 h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                          data-ocid={`materiality.tb_accounts.delete_button.${idx + 1}`}
-                        >
-                          <XCircle className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <p className="text-xs text-muted-foreground">
-                  Record each TB account where the GL and Trial Balance totals
-                  do not agree, and explain the variance found.
-                </p>
               </div>
-            </div>
+            )}
           </CardContent>
         </Card>
 
@@ -1560,6 +1802,39 @@ export default function EngagementDetailPage() {
                 ))}
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Engagement Notes Card */}
+        <Card className="border-border/60 bg-card overflow-hidden">
+          <div className="h-[2px] bg-gradient-to-r from-primary/60 via-primary/90 to-primary/30" />
+          <CardHeader className="border-b border-border/40">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
+                <BookMarked className="h-5 w-5 text-primary" />
+              </div>
+              <div className="flex-1">
+                <CardTitle className="font-serif text-2xl text-foreground">
+                  Engagement Notes
+                </CardTitle>
+                <CardDescription>
+                  Rich text notes for this engagement — supports bullets, bold,
+                  colour, underline
+                </CardDescription>
+              </div>
+              <span className="text-[10px] font-mono text-primary/50 uppercase tracking-widest shrink-0">
+                Auto-saved
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <RichTextEditor
+              value={engagementNotes}
+              onChange={setEngagementNotes}
+              placeholder="Add engagement-level notes, key observations, planning memos, or important reminders here..."
+              minHeight={160}
+              data-ocid="engagement.notes.editor"
+            />
           </CardContent>
         </Card>
 

@@ -1,20 +1,59 @@
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "@tanstack/react-router";
 import {
   AlertCircle,
   Briefcase,
+  Check,
   Clock,
   LayoutDashboard,
   LogOut,
   Menu,
-  Moon,
-  Sun,
+  Palette,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useState } from "react";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
+
+const THEMES = [
+  {
+    id: "light",
+    label: "Grey & Peach",
+    description: "Light mode",
+    swatch: "bg-[#f7f4f1]",
+    accent: "bg-[#d4826a]",
+  },
+  {
+    id: "dark",
+    label: "Dark Mode",
+    description: "Charcoal & Peach",
+    swatch: "bg-[#1e1e1e]",
+    accent: "bg-[#c47a5a]",
+  },
+  {
+    id: "deep-navy",
+    label: "Deep Navy & Gold",
+    description: "Dark navy with gold",
+    swatch: "bg-[#0D1B2A]",
+    accent: "bg-[#C9A84C]",
+  },
+  {
+    id: "navy-light",
+    label: "Navy Corporate",
+    description: "White with navy & emerald",
+    swatch: "bg-[#FFFFFF] border border-gray-200",
+    accent: "bg-[#0B3C5D]",
+  },
+];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { clear } = useInternetIdentity();
@@ -22,8 +61,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { theme, setTheme } = useTheme();
-
-  const toggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
+  const currentTheme = THEMES.find((t) => t.id === theme) ?? THEMES[0];
 
   const handleLogout = async () => {
     await clear();
@@ -125,24 +163,94 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleTheme}
-              className="text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-              title={
-                theme === "dark"
-                  ? "Switch to Light Mode"
-                  : "Switch to Dark Mode"
-              }
-              data-ocid="settings.theme.toggle"
-            >
-              {theme === "dark" ? (
-                <Sun className="h-4 w-4" />
-              ) : (
-                <Moon className="h-4 w-4" />
-              )}
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="hidden sm:flex items-center gap-2 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                  data-ocid="settings.theme.toggle"
+                  title="Change theme"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <div
+                      className={`h-3 w-3 rounded-full ${currentTheme.swatch}`}
+                    />
+                    <div
+                      className={`h-3 w-3 rounded-full ${currentTheme.accent}`}
+                    />
+                  </div>
+                  <Palette className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">
+                  Choose Theme
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {THEMES.map((t) => (
+                  <DropdownMenuItem
+                    key={t.id}
+                    onClick={() => setTheme(t.id)}
+                    className="flex items-center gap-3 cursor-pointer"
+                  >
+                    <div className="flex items-center gap-1">
+                      <div className={`h-3 w-3 rounded-full ${t.swatch}`} />
+                      <div className={`h-3 w-3 rounded-full ${t.accent}`} />
+                    </div>
+                    <div className="flex flex-col flex-1">
+                      <span className="text-sm font-medium">{t.label}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {t.description}
+                      </span>
+                    </div>
+                    {theme === t.id && (
+                      <Check className="h-3.5 w-3.5 text-primary ml-auto shrink-0" />
+                    )}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {/* Mobile icon-only trigger */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="sm:hidden text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                  data-ocid="settings.theme.toggle"
+                >
+                  <Palette className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">
+                  Choose Theme
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {THEMES.map((t) => (
+                  <DropdownMenuItem
+                    key={t.id}
+                    onClick={() => setTheme(t.id)}
+                    className="flex items-center gap-3 cursor-pointer"
+                  >
+                    <div className="flex items-center gap-1">
+                      <div className={`h-3 w-3 rounded-full ${t.swatch}`} />
+                      <div className={`h-3 w-3 rounded-full ${t.accent}`} />
+                    </div>
+                    <div className="flex flex-col flex-1">
+                      <span className="text-sm font-medium">{t.label}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {t.description}
+                      </span>
+                    </div>
+                    {theme === t.id && (
+                      <Check className="h-3.5 w-3.5 text-primary ml-auto shrink-0" />
+                    )}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button
               variant="ghost"
               size="sm"
@@ -184,23 +292,33 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <div className="flex flex-col gap-1">
                   <NavLinks onClick={() => setMobileMenuOpen(false)} />
                   <div className="mt-4 pt-4 border-t border-border/50 flex flex-col gap-1">
-                    <Button
-                      variant="ghost"
-                      onClick={toggleTheme}
-                      className="w-full justify-start text-muted-foreground hover:text-foreground hover:bg-secondary"
-                      data-ocid="settings.theme.toggle"
-                    >
-                      {theme === "dark" ? (
-                        <Sun className="h-4 w-4 mr-2" />
-                      ) : (
-                        <Moon className="h-4 w-4 mr-2" />
-                      )}
-                      {theme === "dark" ? "Light Mode" : "Dark Mode"}
-                    </Button>
+                    <p className="text-xs text-muted-foreground px-2 mb-1 font-medium uppercase tracking-wider">
+                      Theme
+                    </p>
+                    {THEMES.map((t) => (
+                      <Button
+                        key={t.id}
+                        variant="ghost"
+                        onClick={() => {
+                          setTheme(t.id);
+                          setMobileMenuOpen(false);
+                        }}
+                        className={`w-full justify-start gap-3 ${theme === t.id ? "text-primary" : "text-muted-foreground hover:text-foreground"} hover:bg-secondary`}
+                      >
+                        <div className="flex items-center gap-1">
+                          <div className={`h-3 w-3 rounded-full ${t.swatch}`} />
+                          <div className={`h-3 w-3 rounded-full ${t.accent}`} />
+                        </div>
+                        <span>{t.label}</span>
+                        {theme === t.id && (
+                          <Check className="h-3.5 w-3.5 ml-auto shrink-0" />
+                        )}
+                      </Button>
+                    ))}
                     <Button
                       variant="ghost"
                       onClick={handleLogout}
-                      className="w-full justify-start text-muted-foreground hover:text-foreground hover:bg-secondary"
+                      className="w-full justify-start text-muted-foreground hover:text-foreground hover:bg-secondary mt-2"
                     >
                       <LogOut className="h-4 w-4 mr-2" />
                       Logout

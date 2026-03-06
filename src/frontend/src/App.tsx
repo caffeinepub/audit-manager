@@ -154,6 +154,7 @@ export default function App() {
       defaultTheme="light"
       enableSystem={false}
       storageKey="auditflow-theme"
+      themes={["light", "dark", "deep-navy", "navy-light"]}
     >
       <QueryClientProvider client={queryClient}>
         <RouterProvider router={router} />

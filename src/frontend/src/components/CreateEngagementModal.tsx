@@ -26,7 +26,7 @@ import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { type Engagement, EngagementType, type Section } from "../backend";
+import { type Engagement, EngagementType } from "../backend";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import { useSaveEngagement } from "../hooks/useQueries";
 
@@ -34,16 +34,6 @@ interface CreateEngagementModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
-
-const PREDEFINED_SECTIONS = [
-  "Cash and Bank",
-  "Trade and Other Payables",
-  "Trade and Other Receivables",
-  "Revenue",
-  "Expenses",
-  "Inventory",
-  "Property Plant and Equipment",
-];
 
 export default function CreateEngagementModal({
   open,
@@ -105,19 +95,9 @@ export default function CreateEngagementModal({
         updatedAt: BigInt(Date.now() * 1_000_000),
       };
 
-      const sections: Section[] = PREDEFINED_SECTIONS.map((name, index) => ({
-        id: BigInt(index),
-        name,
-        engagementId: 0n,
-        isCustom: false,
-        formula: "",
-        createdAt: BigInt(Date.now() * 1_000_000),
-        updatedAt: BigInt(Date.now() * 1_000_000),
-      }));
-
       await saveEngagement.mutateAsync({
         engagement,
-        sections,
+        sections: [],
         workpapers: [],
         issues: [],
       });
@@ -260,23 +240,6 @@ export default function CreateEngagementModal({
                   />
                 </PopoverContent>
               </Popover>
-            </div>
-          </div>
-
-          <div className="rounded-lg bg-muted p-4">
-            <p className="text-sm font-medium mb-2">Predefined Sections</p>
-            <p className="text-sm text-muted-foreground mb-3">
-              The following sections will be created automatically:
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {PREDEFINED_SECTIONS.map((section) => (
-                <span
-                  key={section}
-                  className="text-xs px-2 py-1 bg-background rounded border"
-                >
-                  {section}
-                </span>
-              ))}
             </div>
           </div>
 

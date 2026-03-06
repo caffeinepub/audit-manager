@@ -41,6 +41,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { DocumentType, ExternalBlob, RiskLevel } from "../backend";
 import type { Document, Workpaper } from "../backend";
+import { RichTextEditor } from "../components/RichTextEditor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
   useGetEngagementDetails,
@@ -58,7 +59,9 @@ export type AssertionKey =
   | "existence"
   | "valuation"
   | "rights"
-  | "presentation";
+  | "presentation"
+  | "accuracy"
+  | "cutoff";
 
 export interface AssertionState {
   checked: boolean;
@@ -73,6 +76,8 @@ const DEFAULT_ASSERTIONS: AuditAssertions = {
   valuation: { checked: false, notes: "" },
   rights: { checked: false, notes: "" },
   presentation: { checked: false, notes: "" },
+  accuracy: { checked: false, notes: "" },
+  cutoff: { checked: false, notes: "" },
 };
 
 const ASSERTION_LABELS: Record<AssertionKey, string> = {
@@ -81,6 +86,8 @@ const ASSERTION_LABELS: Record<AssertionKey, string> = {
   valuation: "Valuation & Allocation",
   rights: "Rights & Obligations",
   presentation: "Presentation & Disclosure",
+  accuracy: "Accuracy",
+  cutoff: "Cut-Off",
 };
 
 const ASSERTION_DESCRIPTIONS: Record<AssertionKey, string> = {
@@ -94,6 +101,10 @@ const ASSERTION_DESCRIPTIONS: Record<AssertionKey, string> = {
     "Entity holds or controls the rights to assets; liabilities are obligations.",
   presentation:
     "Transactions are classified, described and disclosed appropriately.",
+  accuracy:
+    "Transactions and events have been recorded at the correct amounts and in the correct period.",
+  cutoff:
+    "Transactions and events have been recorded in the correct accounting period.",
 };
 
 export default function WorkpaperPage() {
@@ -374,13 +385,12 @@ export default function WorkpaperPage() {
           </span>
         </div>
         <div className="p-4">
-          <Textarea
+          <RichTextEditor
             value={auditNotes}
-            onChange={(e) => setAuditNotes(e.target.value)}
+            onChange={setAuditNotes}
             placeholder="Record key reminders for this account — audit assertions, risk flags, client-specific notes, relevant standards (IFRS/ISA)..."
-            rows={5}
-            data-ocid="workpaper.audit_notes.textarea"
-            className="bg-transparent border-primary/20 focus:border-primary/50 text-foreground/90 placeholder:text-muted-foreground/50 resize-none"
+            minHeight={120}
+            data-ocid="workpaper.audit_notes.editor"
           />
         </div>
       </div>
@@ -396,7 +406,7 @@ export default function WorkpaperPage() {
             Audit Assertions
           </p>
           <span className="ml-2 text-xs text-muted-foreground">
-            ISA 315 — {checkedCount} of 5 assertions applicable
+            ISA 315 — {checkedCount} of 7 assertions applicable
           </span>
           <span className="ml-auto text-[10px] font-mono text-primary/50 uppercase tracking-widest">
             Auto-saved
