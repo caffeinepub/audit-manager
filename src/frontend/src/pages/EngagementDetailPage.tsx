@@ -637,6 +637,31 @@ export default function EngagementDetailPage() {
     );
   }, [engagementId, engagementNotes]);
 
+  // Prepared by state (persisted to localStorage per engagement)
+  const [preparedBy, setPreparedBy] = useState("");
+  const [preparedByEditMode, setPreparedByEditMode] = useState(false);
+  const [preparedByDraft, setPreparedByDraft] = useState("");
+
+  useEffect(() => {
+    if (!engagementId) return;
+    try {
+      const stored = localStorage.getItem(`prepared-by-${engagementId}`);
+      if (stored) setPreparedBy(stored);
+    } catch {
+      // ignore
+    }
+  }, [engagementId]);
+
+  useEffect(() => {
+    if (!engagementId) return;
+    localStorage.setItem(`prepared-by-${engagementId}`, preparedBy);
+  }, [engagementId, preparedBy]);
+
+  const handleSavePreparedBy = () => {
+    setPreparedBy(preparedByDraft.trim());
+    setPreparedByEditMode(false);
+  };
+
   // Formula editor state
   const [formulaEditSection, setFormulaEditSection] = useState<Section | null>(
     null,
@@ -794,9 +819,7 @@ export default function EngagementDetailPage() {
         /* ignore */
       }
 
-      const auditorName = identity
-        ? `${identity.getPrincipal().toString().substring(0, 16)}...`
-        : "Auditor";
+      const auditorName = preparedBy.trim() || "—";
       const generatedAt = format(new Date(), "dd MMMM yyyy, HH:mm");
 
       const html = buildAuditObservationReport({
@@ -1157,6 +1180,76 @@ export default function EngagementDetailPage() {
             </div>
           </div>
         </div>
+
+        {/* Prepared By Card */}
+        <Card className="border-border/60 bg-card overflow-hidden">
+          <div className="h-[2px] bg-gradient-to-r from-primary/60 via-primary/90 to-primary/30" />
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-1">
+                  Prepared by
+                </p>
+                {preparedByEditMode ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={preparedByDraft}
+                      onChange={(e) => setPreparedByDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleSavePreparedBy();
+                        if (e.key === "Escape") setPreparedByEditMode(false);
+                      }}
+                      placeholder="Enter your name"
+                      className="flex-1 bg-background border border-border rounded-md px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      data-ocid="engagement.prepared_by.input"
+                    />
+                    <Button
+                      size="sm"
+                      onClick={handleSavePreparedBy}
+                      data-ocid="engagement.prepared_by.save_button"
+                    >
+                      Save
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setPreparedByEditMode(false)}
+                      data-ocid="engagement.prepared_by.cancel_button"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-foreground font-medium">
+                      {preparedBy || (
+                        <span className="text-muted-foreground italic">
+                          Not set — click edit to add your name
+                        </span>
+                      )}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                      onClick={() => {
+                        setPreparedByDraft(preparedBy);
+                        setPreparedByEditMode(true);
+                      }}
+                      data-ocid="engagement.prepared_by.edit_button"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+              <div className="text-xs text-muted-foreground hidden sm:block">
+                Appears on generated reports
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Engagement Details Card */}
         <Card className="border-border/60 bg-card overflow-hidden">
