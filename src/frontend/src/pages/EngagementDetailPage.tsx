@@ -488,10 +488,16 @@ export default function EngagementDetailPage() {
     materialityAmount: number;
     auditStartDate: string;
     auditEndDate: string;
+    financialYear: number;
+    engagementType: string;
+    finalized: boolean;
   } | null>(null);
   const [editMaterialityAmount, setEditMaterialityAmount] = useState(0);
   const [editAuditStartDate, setEditAuditStartDate] = useState("");
   const [editAuditEndDate, setEditAuditEndDate] = useState("");
+  const [editFinancialYear, setEditFinancialYear] = useState(0);
+  const [editEngagementType, setEditEngagementType] = useState("");
+  const [editFinalized, setEditFinalized] = useState(false);
 
   const handleSaveEngagementEdit = async () => {
     if (!engId || !engagement || !actor) return;
@@ -501,6 +507,10 @@ export default function EngagementDetailPage() {
         materialityAmount: editMaterialityAmount,
         auditStartDate: dateStrToTs(editAuditStartDate),
         auditEndDate: dateStrToTs(editAuditEndDate),
+        financialYear: BigInt(editFinancialYear),
+        engagementType: (editEngagementType.trim() ||
+          engagement.engagementType) as typeof engagement.engagementType,
+        finalized: editFinalized,
         updatedAt: BigInt(Date.now() * 1_000_000),
       });
       queryClient.invalidateQueries({
@@ -1168,12 +1178,18 @@ export default function EngagementDetailPage() {
                       materialityAmount: engagement.materialityAmount,
                       auditStartDate: tsToDateStr(engagement.auditStartDate),
                       auditEndDate: tsToDateStr(engagement.auditEndDate),
+                      financialYear: Number(engagement.financialYear),
+                      engagementType: engagement.engagementType,
+                      finalized: engagement.finalized,
                     });
                     setEditMaterialityAmount(engagement.materialityAmount);
                     setEditAuditStartDate(
                       tsToDateStr(engagement.auditStartDate),
                     );
                     setEditAuditEndDate(tsToDateStr(engagement.auditEndDate));
+                    setEditFinancialYear(Number(engagement.financialYear));
+                    setEditEngagementType(engagement.engagementType);
+                    setEditFinalized(engagement.finalized);
                     setEngEditMode(true);
                   }}
                   className="gap-1.5 border-border/60 hover:border-primary/50 hover:bg-primary/5 hover:text-primary transition-all shrink-0"
@@ -1199,23 +1215,50 @@ export default function EngagementDetailPage() {
                     <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">
                       Financial Year
                     </p>
-                    <p className="font-mono tabular-nums font-semibold text-foreground text-lg">
-                      {Number(engagement.financialYear)}
-                    </p>
+                    {engEditMode ? (
+                      <Input
+                        type="number"
+                        min="2000"
+                        max="2100"
+                        value={editFinancialYear}
+                        onChange={(e) =>
+                          setEditFinancialYear(
+                            Number.parseInt(e.target.value) || 0,
+                          )
+                        }
+                        className="font-mono bg-secondary/40 border-border/50 focus:border-primary/50"
+                        data-ocid="engagement.details.financial_year.input"
+                      />
+                    ) : (
+                      <p className="font-mono tabular-nums font-semibold text-foreground text-lg">
+                        {Number(engagement.financialYear)}
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-1">
                     <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">
                       Type
                     </p>
-                    <Badge
-                      className={
-                        engagement.engagementType === "external"
-                          ? "bg-primary/15 text-primary border-primary/30"
-                          : "bg-secondary text-muted-foreground border-border/50"
-                      }
-                    >
-                      {engagement.engagementType}
-                    </Badge>
+                    {engEditMode ? (
+                      <Input
+                        type="text"
+                        value={editEngagementType}
+                        onChange={(e) => setEditEngagementType(e.target.value)}
+                        placeholder="e.g. Industry, Retail, NGO..."
+                        className="bg-secondary/40 border-border/50 focus:border-primary/50"
+                        data-ocid="engagement.details.type.input"
+                      />
+                    ) : (
+                      <Badge
+                        className={
+                          engagement.engagementType === "external"
+                            ? "bg-primary/15 text-primary border-primary/30"
+                            : "bg-secondary text-muted-foreground border-border/50"
+                        }
+                      >
+                        {engagement.engagementType}
+                      </Badge>
+                    )}
                   </div>
 
                   {/* Materiality Amount — editable in edit mode */}
@@ -1296,15 +1339,29 @@ export default function EngagementDetailPage() {
                     <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">
                       Status
                     </p>
-                    <Badge
-                      className={
-                        engagement.finalized
-                          ? "bg-success/15 text-success border-success/30"
-                          : "bg-primary/10 text-primary border-primary/20"
-                      }
-                    >
-                      {engagement.finalized ? "Finalized" : "In Progress"}
-                    </Badge>
+                    {engEditMode ? (
+                      <select
+                        value={editFinalized ? "finalized" : "in_progress"}
+                        onChange={(e) =>
+                          setEditFinalized(e.target.value === "finalized")
+                        }
+                        className="w-full rounded-md border border-border/50 bg-secondary/40 px-3 py-2 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/50"
+                        data-ocid="engagement.details.status.select"
+                      >
+                        <option value="in_progress">In Progress</option>
+                        <option value="finalized">Finalized</option>
+                      </select>
+                    ) : (
+                      <Badge
+                        className={
+                          engagement.finalized
+                            ? "bg-success/15 text-success border-success/30"
+                            : "bg-primary/10 text-primary border-primary/20"
+                        }
+                      >
+                        {engagement.finalized ? "Finalized" : "In Progress"}
+                      </Badge>
+                    )}
                   </div>
                 </div>
 
@@ -1321,6 +1378,9 @@ export default function EngagementDetailPage() {
                           );
                           setEditAuditStartDate(engSnapshot.auditStartDate);
                           setEditAuditEndDate(engSnapshot.auditEndDate);
+                          setEditFinancialYear(engSnapshot.financialYear);
+                          setEditEngagementType(engSnapshot.engagementType);
+                          setEditFinalized(engSnapshot.finalized);
                         }
                         setEngEditMode(false);
                         setEngSnapshot(null);
