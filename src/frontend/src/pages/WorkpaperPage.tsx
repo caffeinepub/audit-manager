@@ -42,6 +42,7 @@ import { toast } from "sonner";
 import { DocumentType, ExternalBlob, RiskLevel } from "../backend";
 import type { Document, Workpaper } from "../backend";
 import { RichTextEditor } from "../components/RichTextEditor";
+import { SectionTasksTable } from "../components/SectionTasksTable";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
   useGetEngagementDetails,
@@ -733,6 +734,9 @@ export default function WorkpaperPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Audit Tasks sub-section — one task log per account head section */}
+      {secId !== null && <SectionTasksTable sectionId={secId} />}
     </div>
   );
 }
