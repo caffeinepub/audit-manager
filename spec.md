@@ -1,28 +1,21 @@
-# Audit Manager
+# AuditFlow - Profile Settings
 
 ## Current State
-Each Account Head (section) has a WorkpaperPage with fields for GL/TB reconciliation, audit assertions, notes, and findings. There is no concept of individual tasks per section.
+The app has a `ProfileSetupModal` shown on first login to collect name and email. The header has a logout button, theme picker, and share button. There is no way to view or edit profile after initial setup. Backend supports `getCallerUserProfile` and `saveCallerUserProfile`.
 
 ## Requested Changes (Diff)
 
 ### Add
-- A "Audit Tasks" sub-section table inside each Account Head (WorkpaperPage), positioned below the existing panels.
-- Each task row has: Task Description (text), Status (editable select: Not Started / In Progress / Completed / N/A), and a delete button.
-- An "Add Task" button to append a new row.
-- Tasks are stored in localStorage keyed by sectionId, so they persist between sessions without a backend change.
-- Visual status badges with distinct colours for each status value.
+- `ProfileSettingsModal` component: a dialog to view and edit profile name and email with save/cancel actions.
+- A "Profile" entry in the header user area (accessible via a user avatar/initials button or dropdown) that opens the profile settings modal.
 
 ### Modify
-- WorkpaperPage.tsx: add AuditTasksTable component at the bottom of the page.
+- `AppLayout.tsx`: add a user avatar/initials button in the header that opens the profile settings modal. Can be integrated into the existing header controls area.
 
 ### Remove
 - Nothing removed.
 
 ## Implementation Plan
-1. Create `SectionTasksTable` component in `src/frontend/src/components/SectionTasksTable.tsx`.
-   - Local state: array of tasks `{ id, description, status }` initialised from localStorage.
-   - On change/add/delete, update localStorage under key `section-tasks-<sectionId>`.
-   - Status options: Not Started | In Progress | Completed | N/A.
-   - Status badge colours match the app theme.
-2. Import and render `SectionTasksTable` at the bottom of `WorkpaperPage.tsx`, passing the `sectionId`.
-3. Validate, lint, build.
+1. Create `ProfileSettingsModal.tsx` component with name and email fields, pre-populated from `useGetCallerUserProfile`, and save via `useSaveCallerUserProfile`.
+2. Update `AppLayout.tsx` to add a user avatar button (shows initials from profile) that triggers the profile settings modal. Add it to the header next to the existing controls.
+3. Add profile settings link in mobile menu as well.

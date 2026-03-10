@@ -1,5 +1,11 @@
 import { Button } from "@/components/ui/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -7,6 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "@tanstack/react-router";
@@ -14,15 +21,21 @@ import {
   AlertCircle,
   Briefcase,
   Check,
+  CheckCheck,
   Clock,
+  Copy,
   LayoutDashboard,
   LogOut,
   Menu,
   Palette,
+  Share2,
+  UserCircle,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useState } from "react";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
+import { useGetCallerUserProfile } from "../hooks/useQueries";
+import ProfileSettingsModal from "./ProfileSettingsModal";
 
 const THEMES = [
   {
@@ -60,8 +73,41 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [profileSettingsOpen, setProfileSettingsOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
   const { theme, setTheme } = useTheme();
   const currentTheme = THEMES.find((t) => t.id === theme) ?? THEMES[0];
+  const { data: userProfile } = useGetCallerUserProfile();
+
+  const appUrl = window.location.origin;
+
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(appUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      // fallback
+      const el = document.createElement("input");
+      el.value = appUrl;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    }
+  };
 
   const handleLogout = async () => {
     await clear();
@@ -133,9 +179,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      {/* Header — sleek dark with gold accent line */}
+      {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-card/90 backdrop-blur-md">
-        {/* Gold accent line at top of header */}
         <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-primary/80 to-transparent" />
         <div className="container mx-auto flex h-15 items-center justify-between px-4">
           <div className="flex items-center gap-6">
@@ -163,6 +208,29 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Share App Button */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShareOpen(true)}
+              className="hidden sm:flex items-center gap-2 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              data-ocid="share.open_modal_button"
+              title="Share app link"
+            >
+              <Share2 className="h-4 w-4" />
+              <span className="text-sm">Share</span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShareOpen(true)}
+              className="sm:hidden text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              data-ocid="share.open_modal_button"
+            >
+              <Share2 className="h-4 w-4" />
+            </Button>
+
+            {/* Theme picker */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -211,7 +279,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
-            {/* Mobile icon-only trigger */}
+            {/* Mobile theme icon */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -251,6 +319,25 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
+
+            {/* Profile Avatar Button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setProfileSettingsOpen(true)}
+              className="relative h-8 w-8 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors border border-primary/20 hover:border-primary/40"
+              title="Profile settings"
+              data-ocid="profile.open_modal_button"
+            >
+              {userProfile?.name ? (
+                <span className="text-xs font-semibold text-primary leading-none">
+                  {getInitials(userProfile.name)}
+                </span>
+              ) : (
+                <UserCircle className="h-4 w-4 text-primary/70" />
+              )}
+            </Button>
+
             <Button
               variant="ghost"
               size="sm"
@@ -272,7 +359,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </Button>
               </SheetTrigger>
               <SheetContent side="left" className="bg-card border-border w-72">
-                {/* Mobile sheet gold accent */}
                 <div className="h-[2px] w-full bg-gradient-to-r from-primary/80 to-transparent -mt-6 mb-6" />
                 <div className="flex items-center gap-3 mb-8">
                   <div className="h-9 w-9 rounded-md bg-primary flex items-center justify-center shadow-accent-sm">
@@ -292,7 +378,28 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <div className="flex flex-col gap-1">
                   <NavLinks onClick={() => setMobileMenuOpen(false)} />
                   <div className="mt-4 pt-4 border-t border-border/50 flex flex-col gap-1">
-                    <p className="text-xs text-muted-foreground px-2 mb-1 font-medium uppercase tracking-wider">
+                    {/* Profile Settings in mobile menu */}
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        setProfileSettingsOpen(true);
+                      }}
+                      className="w-full justify-start gap-3 text-muted-foreground hover:text-foreground hover:bg-secondary"
+                      data-ocid="profile.open_modal_button"
+                    >
+                      <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                        {userProfile?.name ? (
+                          <span className="text-[9px] font-semibold text-primary leading-none">
+                            {getInitials(userProfile.name)}
+                          </span>
+                        ) : (
+                          <UserCircle className="h-3 w-3 text-primary/70" />
+                        )}
+                      </div>
+                      <span>Profile Settings</span>
+                    </Button>
+                    <p className="text-xs text-muted-foreground px-2 mb-1 font-medium uppercase tracking-wider mt-2">
                       Theme
                     </p>
                     {THEMES.map((t) => (
@@ -330,6 +437,62 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
+
+      {/* Share App Dialog */}
+      <Dialog open={shareOpen} onOpenChange={setShareOpen}>
+        <DialogContent className="sm:max-w-md" data-ocid="share.dialog">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 font-serif">
+              <Share2 className="h-5 w-5 text-primary" />
+              Share App
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <p className="text-sm text-muted-foreground">
+              Send this link to anyone you want to give access to. Each person
+              logs in with their own Internet Identity, so your data stays
+              completely separate from theirs.
+            </p>
+            <div className="flex items-center gap-2">
+              <Input
+                readOnly
+                value={appUrl}
+                className="font-mono text-sm"
+                data-ocid="share.input"
+                onClick={(e) => (e.target as HTMLInputElement).select()}
+              />
+              <Button
+                size="sm"
+                onClick={handleCopy}
+                className="shrink-0 gap-2"
+                data-ocid="share.primary_button"
+              >
+                {copied ? (
+                  <>
+                    <CheckCheck className="h-4 w-4" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4" />
+                    Copy
+                  </>
+                )}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Anyone who opens this link will see the login screen and can
+              create their own account. Only you can see your audits.
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Profile Settings Modal */}
+      <ProfileSettingsModal
+        open={profileSettingsOpen}
+        onOpenChange={setProfileSettingsOpen}
+      />
 
       {/* Main Content */}
       <main className="flex-1 container mx-auto px-4 py-8">{children}</main>
